@@ -25,13 +25,11 @@ jobs:
           sudo apt-get update
           sudo apt-get install gh
 
-      - name: Sync with Upstream
-        uses: dabreadman/sync-upstream-repo@v1.3.0
-        with:
-          upstream_repo: 'https://github.com/kode-krew/meta-test-be.git'
-          upstream_branch: 'main'
-          downstream_branch: 'main'
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Add Upstream Remote
+        run: |
+          cd fork
+          git remote add upstream https://github.com/kode-krew/meta-test-be.git
+          git fetch upstream
 
       - name: Configure Git
         run: |
@@ -39,35 +37,22 @@ jobs:
           git config user.name "minchodang"
           git config user.email "minsu910725@gmail.com"
 
-      - name: Add Upstream Remote
-        run: |
-          cd fork
-          git remote add upstream https://github.com/kode-krew/meta-test-be.git
-
       - name: Check for Changes
         id: changes
         run: |
           cd fork
-          git fetch upstream main
-          git diff --exit-code upstream/main || echo "changes=true" >> $GITHUB_OUTPUT
-          if [ ! -f $GITHUB_OUTPUT ]; then
+          if git diff --quiet upstream/main; then
             echo "changes=false" >> $GITHUB_OUTPUT
+          else
+            echo "changes=true" >> $GITHUB_OUTPUT
           fi
-
-      - name: Push changes to forked-repo
-        if: steps.changes.outputs.changes == 'true'
-        run: |
-          cd fork
-          git merge upstream/main --no-commit --no-ff || true
-          git push origin main
 
       - name: Create Pull Request
         if: steps.changes.outputs.changes == 'true'
         run: |
           cd fork
           git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S)
-          git add -A
-          git commit -m 'Sync with upstream'
+          git merge upstream/main --no-commit --no-ff || true
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
           gh pr create --title 'Sync with upstream' --body 'This PR syncs the fork with upstream repository' --base main --head sync-upstream-$(date +%Y%m%d%H%M%S)
         env:
