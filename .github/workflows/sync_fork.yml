@@ -54,24 +54,12 @@ jobs:
             echo "changes=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Merge changes from upstream
-        if: steps.changes.outputs.changes == 'true'
-        run: |
-          cd fork
-          git merge upstream/main --no-commit --no-ff || true
-
-      - name: Push changes to forked-repo
-        if: steps.changes.outputs.changes == 'true'
-        run: |
-          cd fork
-          git commit -m 'Merged upstream changes'
-          git push origin main
-
       - name: Create Pull Request
         if: steps.changes.outputs.changes == 'true'
         run: |
           cd fork
           git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S)
+          git pull upstream main --rebase
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
           gh pr create --title 'Sync with upstream' --body 'This PR syncs the fork with upstream repository' --base main --head sync-upstream-$(date +%Y%m%d%H%M%S)
         env:
