@@ -2,7 +2,7 @@ name: Sync Upstream and Create PR
 
 on:
   schedule:
-    - cron: '0 18 * * *' # 매일 18시에 실행
+    - cron: '*/1 * * * *' # 매 분마다 실행
   workflow_dispatch: # 수동으로도 실행 가능하게 설정
 
 jobs:
@@ -49,16 +49,22 @@ jobs:
         run: |
           cd fork
           git fetch upstream main
-          git diff --exit-code upstream/main || echo "changes=true" >> $GITHUB_OUTPUT
+          git diff --exit-code upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml' || echo "changes=true" >> $GITHUB_OUTPUT
           if [ ! -f $GITHUB_OUTPUT ]; then
             echo "changes=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Merge changes from upstream
+        if: steps.changes.outputs.changes == 'true'
+        run: |
+          cd fork
+          git merge upstream/main --no-commit --no-ff || true
 
       - name: Push changes to forked-repo
         if: steps.changes.outputs.changes == 'true'
         run: |
           cd fork
-          git merge upstream/main --no-commit --no-ff || true
+          git commit -m 'Merged upstream changes'
           git push origin main
 
       - name: Create Pull Request
@@ -66,8 +72,6 @@ jobs:
         run: |
           cd fork
           git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S)
-          git add -A
-          git commit -m 'Sync with upstream'
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
           gh pr create --title 'Sync with upstream' --body 'This PR syncs the fork with upstream repository' --base main --head sync-upstream-$(date +%Y%m%d%H%M%S)
         env:
