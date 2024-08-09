@@ -35,13 +35,11 @@ jobs:
             echo "changes=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Create Branch and Push
+      - name: Create Branch and Merge Changes
         if: steps.changes.outputs.changes == 'true'
         run: |
           git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S)
           git merge upstream/main --no-edit || true
-          git add -A
-          git commit -m "Sync with upstream"
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
 
       - name: Create Pull Request
