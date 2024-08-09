@@ -2,17 +2,19 @@ name: Sync Upstream and Create PR
 
 on:
   schedule:
-    - cron: '* * * * *' # 매 분마다 실행
+    - cron: '*/1 * * * *' # 매 분마다 실행
   workflow_dispatch: # 수동으로도 실행 가능하게 설정
 
 jobs:
   sync:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Fork
         uses: actions/checkout@v2
         with:
-          token: ${{ secrets.PAT_TOKEN }}
+          repository: ${{ github.repository }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: Configure Git
@@ -40,15 +42,9 @@ jobs:
           git merge upstream/main --no-edit || true
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
 
-      - name: Commit changes
-        if: steps.changes.outputs.changes == 'true'
-        run: |
-          git add .
-          git diff --staged --quiet || git commit -m "Sync with upstream"
-
       - name: Create Pull Request
         if: steps.changes.outputs.changes == 'true'
         run: |
           gh pr create --title 'Sync with upstream' --body 'This PR syncs the fork with upstream repository' --base main --head sync-upstream-$(date +%Y%m%d%H%M%S)
         env:
-          GITHUB_TOKEN: ${{ secrets.PAT_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
