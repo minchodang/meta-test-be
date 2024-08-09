@@ -2,13 +2,16 @@ name: Sync Upstream and Create PR
 
 on:
   schedule:
-    - cron: '*/1 * * * *' # 매 분마다 실행
+    - cron: '* * * * *' # 매 분마다 실행
   workflow_dispatch: # 수동으로도 실행 가능하게 설정
+
+permissions:
+  contents: write
+  pull-requests: write
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout Fork
         uses: actions/checkout@v2
@@ -41,6 +44,12 @@ jobs:
           git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S)
           git merge upstream/main --no-edit || true
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
+
+      - name: Commit changes
+        if: steps.changes.outputs.changes == 'true'
+        run: |
+          git add .
+          git diff --staged --quiet || git commit -m "Sync with upstream"
 
       - name: Create Pull Request
         if: steps.changes.outputs.changes == 'true'
