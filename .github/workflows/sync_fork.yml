@@ -40,11 +40,14 @@ jobs:
         run: |
           git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S)
           git merge upstream/main --no-edit || true
+          git add -A
+          git commit -m "Sync with upstream"
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
 
       - name: Create Pull Request
         if: steps.changes.outputs.changes == 'true'
         run: |
+          gh auth login --with-token <<< "${{ secrets.PERSONAL_ACCESS_TOKEN }}"
           gh pr create --title 'Sync with upstream' --body 'This PR syncs the fork with upstream repository' --base main --head sync-upstream-$(date +%Y%m%d%H%M%S)
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
