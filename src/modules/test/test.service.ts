@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TestRepository } from './test.repository';
 import { CreateTestRequestDto } from './dto/create-test-request.dto';
-import { CreateTestResponseDto } from './dto/create-test-response.dto';
 
 @Injectable()
 export class TestService {
@@ -13,10 +11,9 @@ export class TestService {
 
     const responseItem = {
       id: item.PK,
-      ...item,
+      sort_key: item.SK,
     };
-    delete responseItem.PK;
-    delete responseItem.SK;
+
     return responseItem;
   }
 }

@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { TestLevel } from '../test.entity';
 
 export class CreateTestResponseDto {
   @ApiProperty({
@@ -7,36 +8,9 @@ export class CreateTestResponseDto {
   })
   id: string;
 
-  @ApiProperty({ example: 'beginner', description: 'level' })
-  level: string;
-
-  @ApiProperty({ example: 0.5, description: 'score' })
-  score: number;
-
-  @ApiProperty({ example: 10, description: 'total_count' })
-  total_count?: number;
-
-  @ApiProperty({ example: 5, description: 'expected_count' })
-  expected_count?: number;
-
-  @ApiProperty({ example: 5, description: 'expected_count' })
-  correct_count?: number;
-
   @ApiProperty({
-    example: ['word1', 'word2', 'word3', 'word4', 'word5'],
-    description: 'An array of total words for the test.',
+    example: 'Test_beginner_2024-04-20T01:19:42.998Z',
+    description: 'The sort key of the test',
   })
-  total_words: string[];
-
-  @ApiProperty({
-    example: ['word1', 'word2'],
-    description: 'An array of input words for the test.',
-  })
-  input_words: string[];
-
-  @ApiProperty({
-    example: ['word1'],
-    description: 'An array of correct words for the test.',
-  })
-  correct_words: string[];
+  sort_key: string;
 }
