@@ -1,8 +1,6 @@
 name: Sync Upstream and Create PR
 
 on:
-  schedule:
-    - cron: '*/1 * * * *' # 매 분마다 실행
   workflow_dispatch: # 수동으로도 실행 가능하게 설정
 
 jobs:
