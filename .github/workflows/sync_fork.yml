@@ -25,6 +25,7 @@ jobs:
         run: |
           git remote add upstream https://github.com/kode-krew/meta-test-be.git
           git fetch upstream
+          git fetch origin
 
       - name: Check for Changes
         id: changes
@@ -37,14 +38,14 @@ jobs:
       - name: Create Branch and Merge Changes
         if: steps.changes.outputs.changes == 'true'
         run: |
-          git checkout main
-          git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S)
+          git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S) origin/main
           git merge upstream/main --no-edit || true
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
 
       - name: Create Pull Request
         if: steps.changes.outputs.changes == 'true'
         run: |
+          BRANCH_NAME=sync-upstream-$(date +%Y%m%d%H%M%S)
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
@@ -52,7 +53,7 @@ jobs:
             -d '{
               "title": "Sync with upstream",
               "body": "This PR syncs the fork with upstream repository",
-              "head": "sync-upstream-'"$(date +%Y%m%d%H%M%S)"'",
+              "head": "'"$BRANCH_NAME"'",
               "base": "main"
             }'
         env:
