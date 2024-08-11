@@ -37,6 +37,7 @@ jobs:
       - name: Create Branch and Merge Changes
         if: steps.changes.outputs.changes == 'true'
         run: |
+          git checkout main
           git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S)
           git merge upstream/main --no-edit || true
           git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
