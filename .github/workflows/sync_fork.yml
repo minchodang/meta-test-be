@@ -54,18 +54,18 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create Branch and Merge Changes
-        if: steps.pr_exists.outputs.pr_exists == 'false'
+      - name: Create Branch and Rebase Changes
+        if: steps.changes.outputs.changes == 'true'
         run: |
           BRANCH_NAME=sync-upstream-$(date +%Y%m%d%H%M%S)
           git checkout -b $BRANCH_NAME origin/main
-          git merge upstream/main --no-edit || true
-          git push origin $BRANCH_NAME
+          git rebase upstream/main
+          git push origin $BRANCH_NAME --force-with-lease
+          echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Create Pull Request
         if: steps.pr_exists.outputs.pr_exists == 'false'
         run: |
-          BRANCH_NAME=sync-upstream-$(date +%Y%m%d%H%M%S)
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
@@ -73,7 +73,7 @@ jobs:
             -d '{
               "title": "Sync with upstream",
               "body": "This PR syncs the fork with upstream repository",
-              "head": "'"$BRANCH_NAME"'",
+              "head": "'"${{ env.BRANCH_NAME }}"'",
               "base": "main"
             }'
         env:
