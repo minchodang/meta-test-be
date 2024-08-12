@@ -30,20 +30,40 @@ jobs:
       - name: Check for Changes
         id: changes
         run: |
-          git diff --exit-code origin/main upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml' || echo "changes=true" >> $GITHUB_OUTPUT
-          if [ ! -f $GITHUB_OUTPUT ]; then
-            echo "changes=false" >> $GITHUB_OUTPUT
-          fi
+          git diff origin/main upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml' > diff.txt
+          DIFF_HASH=$(sha256sum diff.txt | cut -d ' ' -f 1)
+          echo "diff_hash=$DIFF_HASH" >> $GITHUB_ENV
 
-      - name: Create Branch and Merge Changes
+      - name: Check for Existing PR with Same Changes
+        id: pr_exists
         if: steps.changes.outputs.changes == 'true'
         run: |
-          git checkout -b sync-upstream-$(date +%Y%m%d%H%M%S) origin/main
+          EXISTING_PR=$(gh pr list --repo ${{ github.repository }} --json number --jq '.[] | select(.state=="open") | .number')
+          for pr in $EXISTING_PR; do
+            gh pr checkout $pr
+            git diff origin/main -- . ':(exclude).github/workflows/sync-upstream.yml' > existing_diff.txt
+            EXISTING_DIFF_HASH=$(sha256sum existing_diff.txt | cut -d ' ' -f 1)
+            if [ "$EXISTING_DIFF_HASH" == "$DIFF_HASH" ]; then
+              echo "pr_exists=true" >> $GITHUB_OUTPUT
+              break
+            fi
+          done
+          if [ ! -f $GITHUB_OUTPUT ]; then
+            echo "pr_exists=false" >> $GITHUB_OUTPUT
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Branch and Merge Changes
+        if: steps.pr_exists.outputs.pr_exists == 'false'
+        run: |
+          BRANCH_NAME=sync-upstream-$(date +%Y%m%d%H%M%S)
+          git checkout -b $BRANCH_NAME origin/main
           git merge upstream/main --no-edit || true
-          git push origin sync-upstream-$(date +%Y%m%d%H%M%S)
+          git push origin $BRANCH_NAME
 
       - name: Create Pull Request
-        if: steps.changes.outputs.changes == 'true'
+        if: steps.pr_exists.outputs.pr_exists == 'false'
         run: |
           BRANCH_NAME=sync-upstream-$(date +%Y%m%d%H%M%S)
           curl -X POST \
