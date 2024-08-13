@@ -39,16 +39,16 @@ jobs:
         id: existing-prs
         run: |
           EXISTING_PR=$(curl -s \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls \
-            | jq -r '.[] | select(.head.ref | startswith("sync-upstream-")) | .head.ref')
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Accept: application/vnd.github.v3+json" \
+              https://api.github.com/repos/${{ github.repository }}/pulls \
+              | jq -r '.[] | select(.head.ref | startswith("sync-upstream-")) | .head.ref')
 
           if [ -n "$EXISTING_PR" ]; then
-            echo "existing_pr=true" >> $GITHUB_OUTPUT
-            echo "existing_pr_ref=$EXISTING_PR" >> $GITHUB_OUTPUT
+             echo "existing_pr=true" >> $GITHUB_ENV
+             echo "existing_pr_ref=$EXISTING_PR" >> $GITHUB_ENV
           else
-            echo "existing_pr=false" >> $GITHUB_OUTPUT
+             echo "existing_pr=false" >> $GITHUB_ENV
           fi
 
       - name: Compare Changes with Existing PR
