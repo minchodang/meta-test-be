@@ -44,11 +44,12 @@ jobs:
               https://api.github.com/repos/${{ github.repository }}/pulls \
               | jq -r '.[] | select(.head.ref | startswith("sync-upstream-")) | .head.ref')
 
-          if [ -n "$EXISTING_PR" ]; then
-             echo "existing_pr=true" >> $GITHUB_ENV
-             echo "existing_pr_ref=$EXISTING_PR" >> $GITHUB_ENV
+          # Ensure EXISTING_PR is not empty and doesn't contain problematic characters
+          if [[ -n "$EXISTING_PR" && "$EXISTING_PR" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+              echo "existing_pr=true" >> $GITHUB_ENV
+              echo "existing_pr_ref=$EXISTING_PR" >> $GITHUB_ENV
           else
-             echo "existing_pr=false" >> $GITHUB_ENV
+              echo "existing_pr=false" >> $GITHUB_ENV
           fi
 
       - name: Compare Changes with Existing PR
