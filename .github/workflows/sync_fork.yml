@@ -76,11 +76,12 @@ jobs:
             git fetch origin "$pr_ref":existing-pr-branch
 
             echo "Comparing with main branch"
-            git diff --exit-code origin/main existing-pr-branch -- . ':(exclude).github/workflows/sync-upstream.yml'
+            git diff origin/main existing-pr-branch -- . ':(exclude).github/workflows/sync-upstream.yml'
             if [ $? -eq 0 ]; then
+              echo "No differences found for branch $pr_ref"
               echo "diff=false" >> $GITHUB_ENV
-              break
             else
+              echo "Differences found for branch $pr_ref"
               echo "diff=true" >> $GITHUB_ENV
             fi
           done
