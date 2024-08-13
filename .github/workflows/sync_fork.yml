@@ -61,55 +61,45 @@ jobs:
               echo "existing_pr=false" >> $GITHUB_ENV
           fi
 
-      - name: Output Debugging Info
-        run: |
-          echo "existing_pr: ${{ env.existing_pr }}"
-          echo "existing_pr_ref: ${{ env.existing_pr_ref }}"
-
       - name: Compare Changes with Each Existing PR
         id: compare-changes
         if: env.existing_pr == 'true' && env.changes == 'true'
         run: |
-          DIFF_FOUND=false
+          ALL_EXISTING_INCLUDED=true
           for pr_ref in ${{ env.existing_pr_ref }}
           do
             echo "Fetching branch: $pr_ref"
             git fetch origin "$pr_ref:$pr_ref-branch"
 
             echo "Comparing with main branch"
-            git diff origin/main "$pr_ref-branch" -- . ':(exclude).github/workflows/sync-upstream.yml'
-            if [ $? -eq 1 ]; then
-              echo "Differences found for branch $pr_ref"
-              DIFF_FOUND=true
+            git diff --quiet origin/main "$pr_ref-branch" -- . ':(exclude).github/workflows/sync-upstream.yml'
+            if [ $? -ne 0 ]; then
+              ALL_EXISTING_INCLUDED=false
               break
-            else
-              echo "No differences found for branch $pr_ref"
             fi
           done
 
-          if [ "$DIFF_FOUND" = true ]; then
-            echo "diff=true" >> $GITHUB_ENV
-          else
+          if [ "$ALL_EXISTING_INCLUDED" = true ]; then
             echo "diff=false" >> $GITHUB_ENV
-          fi
+          else
+            echo "diff=true" >> $GITHUB_ENV
 
-      - name: Close Duplicate PRs
-        if: env.diff == 'true'
-        run: |
-          for pr_ref in ${{ env.existing_pr_ref }}
-          do
-            PR_NUMBER=$(curl -s \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.repository }}/pulls \
-              | jq -r '.[] | select(.head.ref=="'$pr_ref'") | .number')
-            
-            curl -X PATCH \
-              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-              -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER \
-              -d '{"state":"closed"}'
-          done
+            # Close all existing PRs
+            for pr_ref in ${{ env.existing_pr_ref }}
+            do
+              PR_NUMBER=$(curl -s \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/pulls \
+                | jq -r '.[] | select(.head.ref=="'$pr_ref'") | .number')
+
+              curl -X PATCH \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER \
+                -d '{"state":"closed"}'
+            done
+          fi
 
       - name: Create Branch and Rebase Changes
         if: env.diff == 'true' || env.existing_pr == 'false'
