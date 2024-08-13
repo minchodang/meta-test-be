@@ -30,9 +30,9 @@ jobs:
       - name: Check for Changes
         id: changes
         run: |
-          git diff --exit-code origin/main upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml' || echo "changes=true" >> $GITHUB_OUTPUT
-          if [ ! -f $GITHUB_OUTPUT ]; then
-            echo "changes=false" >> $GITHUB_OUTPUT
+          git diff --exit-code origin/main upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml' || echo "changes=true" >> $GITHUB_ENV
+          if [ ! -f $GITHUB_ENV ]; then
+            echo "changes=false" >> $GITHUB_ENV
           fi
 
       - name: Check Existing PRs
@@ -63,31 +63,31 @@ jobs:
 
       - name: Output Debugging Info
         run: |
-          echo "existing_pr: ${{ steps.existing-prs.outputs.existing_pr }}"
-          echo "existing_pr_ref: ${{ steps.existing-prs.outputs.existing_pr_ref }}"
+          echo "existing_pr: ${{ env.existing_pr }}"
+          echo "existing_pr_ref: ${{ env.existing_pr_ref }}"
 
       - name: Compare Changes with Each Existing PR
         id: compare-changes
-        if: steps.existing-prs.outputs.existing_pr == 'true' && steps.changes.outputs.changes == 'true'
+        if: env.existing_pr == 'true' && env.changes == 'true'
         run: |
-          git fetch origin ${{ steps.existing-prs.outputs.existing_pr_ref }}:existing-pr-branch
+          git fetch origin ${{ env.existing_pr_ref }}:existing-pr-branch
 
           # Loop through each PR and compare
-          for pr_ref in ${{ steps.existing-prs.outputs.existing_pr_ref }}
+          for pr_ref in ${{ env.existing_pr_ref }}
           do
             git diff --exit-code origin/main "$pr_ref" -- . ':(exclude).github/workflows/sync-upstream.yml'
             if [ $? -eq 0 ]; then
-              echo "diff=false" >> $GITHUB_OUTPUT
+              echo "diff=false" >> $GITHUB_ENV
               break
             else
-              echo "diff=true" >> $GITHUB_OUTPUT
+              echo "diff=true" >> $GITHUB_ENV
             fi
           done
 
       - name: Close Duplicate PRs
-        if: steps.compare-changes.outputs.diff == 'true'
+        if: env.diff == 'true'
         run: |
-          for pr_ref in ${{ steps.existing-prs.outputs.existing_pr_ref }}
+          for pr_ref in ${{ env.existing_pr_ref }}
           do
             PR_NUMBER=$(curl -s \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -103,7 +103,7 @@ jobs:
           done
 
       - name: Create Branch and Rebase Changes
-        if: steps.compare-changes.outputs.diff == 'true' || steps.existing-prs.outputs.existing_pr == 'false'
+        if: env.diff == 'true' || env.existing_pr == 'false'
         run: |
           BRANCH_NAME=sync-upstream-$(date +%Y%m%d%H%M%S)
           git checkout -b $BRANCH_NAME origin/main
@@ -112,7 +112,7 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Create Pull Request
-        if: steps.compare-changes.outputs.diff == 'true' || steps.existing-prs.outputs.existing_pr == 'false'
+        if: env.diff == 'true' || env.existing_pr == 'false'
         run: |
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
