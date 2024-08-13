@@ -30,9 +30,10 @@ jobs:
       - name: Check for Changes
         id: changes
         run: |
-          git diff --exit-code origin/main upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml' || echo "changes=true" >> $GITHUB_ENV
-          if [ ! -f $GITHUB_ENV ]; then
+          if git diff --quiet origin/main upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml'; then
             echo "changes=false" >> $GITHUB_ENV
+          else
+            echo "changes=true" >> $GITHUB_ENV
           fi
 
       - name: Check Existing PRs
@@ -47,7 +48,6 @@ jobs:
           # Filter the response to get PRs starting with "sync-upstream-"
           EXISTING_PR=$(echo "$RESPONSE" | jq -r '.[] | select(.head.ref | startswith("sync-upstream-")) | .head.ref' | tr '\n' ' ')
 
-          # Ensure EXISTING_PR is not empty
           if [[ -n "$EXISTING_PR" ]]; then
               echo "existing_pr=true" >> $GITHUB_ENV
               echo "existing_pr_ref=$EXISTING_PR" >> $GITHUB_ENV
@@ -65,9 +65,9 @@ jobs:
             echo "Fetching branch: $pr_ref"
             git fetch origin "$pr_ref:$pr_ref-branch"
 
-            echo "Comparing with main branch"
-            git diff --quiet origin/main "$pr_ref-branch" -- . ':(exclude).github/workflows/sync-upstream.yml' || ALL_EXISTING_INCLUDED=false
-            if [ "$ALL_EXISTING_INCLUDED" = false ]; then
+            echo "Comparing with upstream/main"
+            if ! git diff --quiet upstream/main "$pr_ref-branch" -- . ':(exclude).github/workflows/sync-upstream.yml'; then
+              ALL_EXISTING_INCLUDED=false
               break
             fi
           done
