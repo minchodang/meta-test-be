@@ -44,14 +44,8 @@ jobs:
               -H "Accept: application/vnd.github.v3+json" \
               https://api.github.com/repos/${{ github.repository }}/pulls)
 
-          # 디버깅을 위해 전체 응답 출력
-          echo "API Response: $RESPONSE"
-
           # Filter the response to get PRs starting with "sync-upstream-"
           EXISTING_PR=$(echo "$RESPONSE" | jq -r '.[] | select(.head.ref | startswith("sync-upstream-")) | .head.ref' | tr '\n' ' ')
-
-          # 디버깅 정보 출력
-          echo "Filtered EXISTING_PR: $EXISTING_PR"
 
           # Ensure EXISTING_PR is not empty
           if [[ -n "$EXISTING_PR" ]]; then
