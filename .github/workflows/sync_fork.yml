@@ -2,6 +2,8 @@ name: Sync Upstream and Create PR
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *' # 매일 밤 12시 정각에 실행
 
 jobs:
   sync:
@@ -30,7 +32,7 @@ jobs:
       - name: Check for Changes
         id: changes
         run: |
-          if git diff --quiet origin/main upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml'; then
+          if git diff --quiet origin/main upstream/main; then
             echo "changes=false" >> $GITHUB_ENV
           else
             echo "changes=true" >> $GITHUB_ENV
@@ -66,7 +68,7 @@ jobs:
             git fetch origin "$pr_ref:$pr_ref-branch"
 
             echo "Comparing with upstream/main"
-            if ! git diff --quiet upstream/main "$pr_ref-branch" -- . ':(exclude).github/workflows/sync-upstream.yml'; then
+            if ! git diff --quiet upstream/main "$pr_ref-branch"; then
               ALL_EXISTING_INCLUDED=false
               break
             fi
