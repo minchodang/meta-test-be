@@ -70,12 +70,13 @@ jobs:
         id: compare-changes
         if: env.existing_pr == 'true' && env.changes == 'true'
         run: |
-          git fetch origin ${{ env.existing_pr_ref }}:existing-pr-branch
-
-          # Loop through each PR and compare
           for pr_ref in ${{ env.existing_pr_ref }}
           do
-            git diff --exit-code origin/main "$pr_ref" -- . ':(exclude).github/workflows/sync-upstream.yml'
+            echo "Fetching branch: $pr_ref"
+            git fetch origin "$pr_ref":existing-pr-branch
+
+            echo "Comparing with main branch"
+            git diff --exit-code origin/main existing-pr-branch -- . ':(exclude).github/workflows/sync-upstream.yml'
             if [ $? -eq 0 ]; then
               echo "diff=false" >> $GITHUB_ENV
               break
