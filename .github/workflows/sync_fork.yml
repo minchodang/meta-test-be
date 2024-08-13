@@ -2,6 +2,8 @@ name: Sync Upstream and Create PR
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *' # 매일 밤 12시 정각에 실행
 
 jobs:
   sync:
@@ -30,54 +32,72 @@ jobs:
       - name: Check for Changes
         id: changes
         run: |
-          git diff --exit-code origin/main upstream/main -- . ':(exclude).github/workflows/sync-upstream.yml' || echo "changes=true" >> $GITHUB_OUTPUT
-          if [ ! -f $GITHUB_OUTPUT ]; then
-            echo "changes=false" >> $GITHUB_OUTPUT
+          if git diff --quiet origin/main upstream/main; then
+            echo "changes=false" >> $GITHUB_ENV
+          else
+            echo "changes=true" >> $GITHUB_ENV
           fi
 
       - name: Check Existing PRs
         id: existing-prs
         run: |
-          EXISTING_PR=$(curl -s \
+          # Fetch existing PRs
+          RESPONSE=$(curl -s \
               -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
               -H "Accept: application/vnd.github.v3+json" \
-              https://api.github.com/repos/${{ github.repository }}/pulls \
-              | jq -r '.[] | select(.head.ref | startswith("sync-upstream-")) | .head.ref')
+              https://api.github.com/repos/${{ github.repository }}/pulls)
 
-          if [ -n "$EXISTING_PR" ]; then
-             echo "existing_pr=true" >> $GITHUB_ENV
-             echo "existing_pr_ref=$EXISTING_PR" >> $GITHUB_ENV
+          # Filter the response to get PRs starting with "sync-upstream-"
+          EXISTING_PR=$(echo "$RESPONSE" | jq -r '.[] | select(.head.ref | startswith("sync-upstream-")) | .head.ref' | tr '\n' ' ')
+
+          if [[ -n "$EXISTING_PR" ]]; then
+              echo "existing_pr=true" >> $GITHUB_ENV
+              echo "existing_pr_ref=$EXISTING_PR" >> $GITHUB_ENV
           else
-             echo "existing_pr=false" >> $GITHUB_ENV
+              echo "existing_pr=false" >> $GITHUB_ENV
           fi
 
-      - name: Compare Changes with Existing PR
+      - name: Compare Changes with Each Existing PR
         id: compare-changes
-        if: steps.existing-prs.outputs.existing_pr == 'true' && steps.changes.outputs.changes == 'true'
+        if: env.existing_pr == 'true' && env.changes == 'true'
         run: |
-          git fetch origin ${{ steps.existing-prs.outputs.existing_pr_ref }}:existing-pr-branch
-          git diff --exit-code origin/main existing-pr-branch -- . ':(exclude).github/workflows/sync-upstream.yml' || echo "diff=true" >> $GITHUB_OUTPUT
-          if [ ! -f $GITHUB_OUTPUT ]; then
-            echo "diff=false" >> $GITHUB_OUTPUT
+          ALL_EXISTING_INCLUDED=true
+          for pr_ref in ${{ env.existing_pr_ref }}
+          do
+            echo "Fetching branch: $pr_ref"
+            git fetch origin "$pr_ref:$pr_ref-branch"
+
+            echo "Comparing with upstream/main"
+            if ! git diff --quiet upstream/main "$pr_ref-branch"; then
+              ALL_EXISTING_INCLUDED=false
+              break
+            fi
+          done
+
+          if [ "$ALL_EXISTING_INCLUDED" = true ]; then
+            echo "diff=false" >> $GITHUB_ENV
+          else
+            echo "diff=true" >> $GITHUB_ENV
+
+            # Close all existing PRs
+            for pr_ref in ${{ env.existing_pr_ref }}
+            do
+              PR_NUMBER=$(curl -s \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/pulls \
+                | jq -r '.[] | select(.head.ref=="'$pr_ref'") | .number')
+
+              curl -X PATCH \
+                -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Accept: application/vnd.github.v3+json" \
+                https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER \
+                -d '{"state":"closed"}'
+            done
           fi
-
-      - name: Close Existing PR
-        if: steps.compare-changes.outputs.diff == 'false'
-        run: |
-          PR_NUMBER=$(curl -s \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls \
-            | jq -r '.[] | select(.head.ref=="${{ steps.existing-prs.outputs.existing_pr_ref }}") | .number')
-
-          curl -X PATCH \
-            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
-            -H "Accept: application/vnd.github.v3+json" \
-            https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER \
-            -d '{"state":"closed"}'
 
       - name: Create Branch and Rebase Changes
-        if: steps.compare-changes.outputs.diff == 'true' || steps.existing-prs.outputs.existing_pr == 'false'
+        if: env.diff == 'true' || env.existing_pr == 'false'
         run: |
           BRANCH_NAME=sync-upstream-$(date +%Y%m%d%H%M%S)
           git checkout -b $BRANCH_NAME origin/main
@@ -86,7 +106,7 @@ jobs:
           echo "BRANCH_NAME=$BRANCH_NAME" >> $GITHUB_ENV
 
       - name: Create Pull Request
-        if: steps.compare-changes.outputs.diff == 'true' || steps.existing-prs.outputs.existing_pr == 'false'
+        if: env.diff == 'true' || env.existing_pr == 'false'
         run: |
           curl -X POST \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
