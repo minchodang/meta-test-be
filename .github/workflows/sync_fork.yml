@@ -72,9 +72,8 @@ jobs:
             git fetch origin "$pr_ref:$pr_ref-branch"
 
             echo "Comparing with main branch"
-            git diff --quiet origin/main "$pr_ref-branch" -- . ':(exclude).github/workflows/sync-upstream.yml'
-            if [ $? -ne 0 ]; then
-              ALL_EXISTING_INCLUDED=false
+            git diff --quiet origin/main "$pr_ref-branch" -- . ':(exclude).github/workflows/sync-upstream.yml' || ALL_EXISTING_INCLUDED=false
+            if [ "$ALL_EXISTING_INCLUDED" = false ]; then
               break
             fi
           done
